@@ -1,0 +1,23 @@
+{
+  "name": "zhuzhucli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "zhuzhu": "./bin/www"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Userluckytian/zhuzhuCLI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Userluckytian/zhuzhuCLI/issues"
+  },
+  "homepage": "https://github.com/Userluckytian/zhuzhuCLI#readme"
+}
