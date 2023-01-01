@@ -1,13 +1,15 @@
+/* eslint-disable no-undef */
 /**
  * github API使用： https://blog.csdn.net/weixin_43829154/article/details/120697007
  * https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repository-tags
  * 
  * */
 
+// const { downLoadTempDirectory } = require('./constants')
+const downLoadTempDirectory = `${process.env[process.platform === 'win32' ? 'USERPROFILE' : 'HOME']}/.template`;
 const axios = require('axios');
 const ora = require('ora'); // 版本过高可能会报使用方式错误。降低本吧就好了，建议v3版本
 const Inquirer = require('inquirer'); // 建议v8版本
-const { downLoadTempDirectory } = require('./constants')
 
 // 引入下载代码仓库需要的依赖项（第（5）步的时候看，现在可以忽略）
 let downloadGitRepo = require('download-git-repo');
