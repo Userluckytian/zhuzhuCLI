@@ -23,5 +23,8 @@
   "devDependencies": {
     "commander": "^9.4.1",
     "eslint": "^8.30.0"
+  },
+  "dependencies": {
+    "axios": "^1.2.2"
   }
 }
