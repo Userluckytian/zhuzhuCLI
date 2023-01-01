@@ -15,6 +15,15 @@ const Inquirer = require('inquirer'); // 建议v8版本
 let downloadGitRepo = require('download-git-repo');
 const { promisfy } = require('promisfy');
 downloadGitRepo = promisfy(downloadGitRepo);
+let { ncp } = require('ncp');
+ncp = promisfy(ncp);
+const fs = require('fs');
+const path = require('path');
+const MetalSmith = require('metalsmith');  // 遍历文件夹，找需不需要渲染
+const { rejects } = require('assert');
+const { resolve } = require('path');
+const { promise } = require('ora');
+const { render } = require('consolidate').ejs; // 模板解析工具：统一了所有的模板引擎
 
 // 获取项目模板列表
 const fetchRepoList = async () => {
@@ -126,8 +135,77 @@ module.exports = async (projectName) => {
         console.log(`${downLoadTempDirectory}/${selRepoName}`);
         const dist = await waiting(downLoadRepo, 'download Template ...')(selRepoName, selTagName);
         console.log('有tag', dist);
-        // （5-1）简单的，直接拷贝到当前目录
-        // （5-2）复杂的，需要渲染和，再拷贝到当前目录
+        // （5-1）简单的，直接拷贝到当前目录（需要安装ncp， 也是异步回调的形式，需要用promisfy修改）
+        /*
+            npm i ncp： https://www.npmjs.com/package/ncp
+            做什么？ 把下载的模板内容拷贝到当前目录，同时目录的名称修改为我们创建项目的名称
+        */
+        // await ncp(dist, path.resolve(projectName)) // 直接拷贝过来就行
+
+        // （5-2）复杂的，需要渲染后，再拷贝到当前目录
+        /* 有些文件内容如下：
+        package.json
+        {
+            name: <%=name%>,
+            ...
+            private:<%=private%>,
+            author:<%=author%>
+            ...
+            description:<%=description%>
+            ...
+        }
+        这些都是动态属性，ejs模板，需要询问用户，然后根据用户输入进行渲染完成后再拷贝到当前目录。
+        既然我们需要询问用户，我们就要配置一个【询问文件，下面假设为ask.js】，然后通过一个库（metalsmith），来执行对用户的询问。
+        
+        metalsmith： https://www.npmjs.com/package/metalsmith
+        github-example：https://github.com/metalsmith/metalsmith/tree/master/examples/build-tool
+        
+        如果存在ask.js文件，则需要使用复杂模板进行编译，否则直接拷贝
+        */
+        await new promise((resolve, reject) => {
+            // 因为这是个异步方法，我们需要让其尽量变成同步，所以我们需要在前面增加await，则需要外层包一下。
+            if (fs.existsSync(path.join(dist, 'ask.js'))) {
+                // (5-2-1): 根据文件让用户填写信息
+                MetalSmith(__dirname)  // 传入路径，则默认只遍历当前路径下的src文件。这里我们肯定是不用这个的，但是不传还不行，
+                    .source(dist) // 我们这里传了source后，则上面的路径配置失效，而是采用这个目录。且是所以文件。
+                    .destination(path.resolve(projectName)) // 最后渲染完成后，会把文件吐到这里
+                    .use(async (files, metal, done) => {
+                        const askFile = require(path.join(dist, 'ask.js')); // 获取到询问文件
+                        // 构建询问inquirer配置
+                        const inputObj = await Inquirer.prompt(askFile);
+                        console.log(inputObj);
+                        const meatedata = metal.metadata();
+                        Object.assign(meatedata, inputObj)
+                        delete files['ask.js']; // 渲染构建后的模板不再需要该文件
+                        done()
+                    }) // 可以写多个use，但是每个use尽量只做一件事，以方便代码阅读
+                    .use((files, metal, done) => {
+                        const meatedata = metal.metadata();
+                        console.log(meatedata);
+                        // 获取每一个文件，然后校验是否是ejs文件。则执行处理操作，图片、txt文件啥的就不处理
+                        Reflect.ownKeys(files).forEach(async (fileName) => {
+                            if(fileName.includes('js') || fileName.includes('json')){
+                                let content = files[file].contents.toString();
+                                if(content.includes('<%')){
+                                    content = await render(content, obj); // 得到的是字符串，需要转成buffer回填
+                                    files[file].contents = Buffer.from(content);
+                                }
+                            }
+
+                        });
+                        done()
+                    })
+                    .build((err) => {
+                        if (err) reject()
+                        resolve()
+                    })
+                // (5-2-2): 回填信息到文件本身
+
+            } else {
+                ncp(dist, path.resolve(projectName))
+            }
+        })
+
     } else {
         // （5）下载项目模板（需要安装： download-git-repo，由于不是promise类型的，需要安装promisfy工具将其返回转为promise）
         console.log('项目下载中...');
@@ -135,7 +213,8 @@ module.exports = async (projectName) => {
         const dist = await waiting(downLoadRepo, 'download Template ...')(selRepoName);
         console.log('无tag', dist);
         // （5-1）简单的，直接拷贝到当前目录
-        // （5-2）复杂的，需要渲染和，再拷贝到当前目录
+        await ncp(dist, path.resolve(projectName)) // 直接拷贝过来就行
+        // （5-2）复杂的，需要渲染后，再拷贝到当前目录
     }
 
 }
