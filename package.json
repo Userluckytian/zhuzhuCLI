@@ -28,6 +28,7 @@
     "axios": "^1.2.2",
     "consolidate": "^0.16.0",
     "download-git-repo": "^3.0.2",
+    "ejs": "^3.1.8",
     "inquirer": "^8.2.5",
     "metalsmith": "^2.5.1",
     "ncp": "^2.0.0",
