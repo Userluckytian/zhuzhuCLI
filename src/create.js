@@ -190,8 +190,10 @@ module.exports = async (projectName) => {
                             if (fileName.includes('js') || fileName.includes('json')) {
                                 let content = files[fileName].contents.toString();
                                 if (content.includes('<%')) {
+                                    console.log(fileName);
                                     content = await render(content, meatedata); // 得到的是字符串，需要转成buffer回填
                                     files[fileName].contents = Buffer.from(content);
+                                    console.log(files[fileName]);
                                 }
                             }
 
@@ -199,11 +201,12 @@ module.exports = async (projectName) => {
                         done()
                     })
                     .build((err) => {
-                        if (err) reject()
-                        resolve()
+                        if (err) { reject() }
+                        else {
+                            resolve()
+                        }
                     })
                 // (5-2-2): 回填信息到文件本身
-
             } else {
                 ncp(dist, path.resolve(projectName))
             }
@@ -222,9 +225,10 @@ module.exports = async (projectName) => {
             // 因为这是个异步方法，我们需要让其尽量变成同步，所以我们需要在前面增加await，则需要外层包一下。
             if (fs.existsSync(path.join(dist, 'ask.js'))) {
                 // (5-2-1): 根据文件让用户填写信息
-                MetalSmith(__dirname)  // 传入路径，则默认只遍历当前路径下的src文件。这里我们肯定是不用这个的，但是不传还不行，
+                MetalSmith(__dirname)  // 传入路径，则默认只遍历传入路径下的src文件。这里我们肯定是不用这个的，但是不传还不行，
                     .source(dist) // 我们这里传了source后，则上面的路径配置失效，而是采用这个目录。且是所以文件。
                     .destination(path.resolve(projectName)) // 最后渲染完成后，会把文件吐到这里
+                    .clean(true)  // 检验等下渲染完成后，要把文件吐出的地方是否已经存在了该目录，如果存在，则删除
                     .use(async (files, metal, done) => {
                         const askFile = require(path.join(dist, 'ask.js')); // 获取到询问文件
                         // 构建询问inquirer配置
@@ -237,14 +241,28 @@ module.exports = async (projectName) => {
                     }) // 可以写多个use，但是每个use尽量只做一件事，以方便代码阅读
                     .use((files, metal, done) => {
                         const meatedata = metal.metadata();
-                        console.log(meatedata);
                         // 获取每一个文件，然后校验是否是ejs文件。则执行处理操作，图片、txt文件啥的就不处理
-                        Reflect.ownKeys(files).forEach(async (fileName) => {
-                            if (fileName.includes('js') || fileName.includes('json')) {
-                                let content = files[fileName].contents.toString();
-                                if (content.includes('<%') && !fileName.includes('assets')) {
-                                    content = await render(content, meatedata); // 得到的是字符串，需要转成buffer回填
-                                    files[fileName].contents = Buffer.from(content);
+                        Reflect.ownKeys(files).forEach(async (filepath) => {
+                            if (filepath.includes('js') || filepath.includes('json')) {
+                                let content = files[filepath].contents.toString();
+                                if (content.includes('<%') && !filepath.includes('assets')) {
+                                    let newContent = await render(content, meatedata); // 得到的是字符串，需要转成buffer回填
+                                    // console.log('完整路径名称：', path.join(dist, filepath)); // 路径没问题
+                                    // console.log(newContent); // 返回的内容也没有问题
+                                    // 方式一：
+                                    // #region 重新构建该文件
+                                    files[filepath].contents = Buffer.from(res)
+                                    // #endregion
+
+                                    // 方式二如下： 
+                                    // #region 写成同步后，通过这种方式是可以的(①：以管理员方式是可以的。②：非管理员也可以)
+                                    // await new Promise((fileResolve, fileReject) => {
+                                    //     fs.writeFile(path.join(dist, filepath), Buffer.from(newContent, 'utf-8'), function (err) {
+                                    //         if (err) fileReject(err);
+                                    //         else fileResolve();
+                                    //     });
+                                    // });
+                                    // #endregion
                                 }
                             }
 
@@ -252,8 +270,10 @@ module.exports = async (projectName) => {
                         done()
                     })
                     .build((err) => {
-                        if (err) reject()
-                        resolve()
+                        if (err) { reject() }
+                        else {
+                            resolve()
+                        }
                     })
                 // (5-2-2): 回填信息到文件本身
 
